@@ -88,7 +88,9 @@ def grow_tree(x, y, offset_num):
     # print(y)
     if size - np.max(lc) <= offset_num:
         # print(size, np.max(lc))
-        return np.argmax(lc)
+        if np.argmax(lc) == 0:
+            return -1
+        return 1
     best_split = find_best_split(x, y, entropy_calculator(label_count))
     left_x = []
     left_y = []
@@ -121,19 +123,16 @@ def train(data, label, offset_num, tree_num):
         selected_features = np.sort(selected_features)
         new_data, _, new_label, _ = train_test_split(data, label, test_size=0.2, random_state=1)
         selected_columns = new_data[:, selected_features]
-        # print(selected_features)
-        # for i in range(len(selected_columns)):
-        #     print(selected_columns[i], new_data[i])
         tree = grow_tree(selected_columns, new_label, offset_num=offset_num)
-        print(i, tree)
         forest.append(tree)
 
     with open('forest.pkl', 'wb') as file:
         pickle.dump(forest, file)
+    return forest
 
 
 def predict(x, tree):
-    if isinstance(tree, np.int64):
+    if tree == -1 or tree == 1:
         return tree
     elif x[tree[1]] <= tree[2]:
         return predict(x, tree[0])
@@ -141,7 +140,29 @@ def predict(x, tree):
         return predict(x, tree[3])
 
 
+def test(data, forest=[]):
+    with open('forest.pkl', 'rb') as file:
+        forest = pickle.load(file)
+    prediction = []
+    for x in data:
+        tree_pr = []
+        for tree in forest:
+            tree_pr.append(predict(x, tree))
+        if tree_pr.count(-1) > tree_pr.count(1):
+            prediction.append(-1)
+        else:
+            prediction.append(1)
+    return prediction
+
+
 if __name__ == '__main__':
     data, label = reading_files('Breast Cancer dataset/Breast_Cancer_dataset.txt')
     train_data, test_data, train_labels, test_labels = train_test_split(data, label, test_size=0.2, random_state=1)
     train(train_data, train_labels, 0, 20)
+    predictions = test(test_data)
+    print(predictions)
+    correct = 0
+    for i in range(len(test_labels)):
+        if predictions[i] == test_labels[i]:
+            correct += 1
+    print(correct, len(test_labels), correct / len(test_labels))
